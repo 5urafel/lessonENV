@@ -4,7 +4,9 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const ejs = require('ejs');
 const mongoose = require('mongoose');
-const md5 = require('md5');
+const bcrypt = require('bcrypt');
+
+const saltRounds = 10;
 
 
 const app = express();
@@ -36,24 +38,29 @@ app.get("/register",function (req,res) {
 });
 
 app.post("/register",function (req,res) {
-  const newUser = new User({
-    name : req.body.username,
-    password:md5(req.body.password)
+  bcrypt.hash(req.body.password, saltRounds, function(err, hash) {
+      // Store hash in your password DB.
+      const newUser = new User({
+        name : req.body.username,
+        password:hash
+      });
+    newUser.save().then(function (successCB,errorCB) {
+      if (successCB) {
+        res.render("secrets")
+      }
+      else {
+        console.log(errorCB);
+      }
+    });
+
   });
-newUser.save().then(function (successCB,errorCB) {
-  if (successCB) {
-    res.render("secrets")
-  }
-  else {
-    console.log(errorCB);
-  }
-});
+
 
 });
 
 app.post("/login",function (req,res) {
   const email= req.body.username;
-  const password=md5(req.body.password);
+  const password=req.body.password;
 
    User.findOne({name : email}).then(function (successCB,errorCB) {
     if (errorCB) {
@@ -61,12 +68,15 @@ app.post("/login",function (req,res) {
     }
     else {
       if (successCB) {
-        if (password===successCB.password) {
+        bcrypt.compare(password, successCB.password, function(err, result) {
+    // result == true
+          if (result===true) {
             res.render("secrets");
-        }
-        else {
-          console.log("password does not match");
-        }
+          }
+          else {
+            console.log("password does not match");
+          }
+        });    
       }
       else {
         console.log("not registerd");
